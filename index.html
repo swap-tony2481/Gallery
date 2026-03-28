@@ -207,6 +207,14 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .card-artist { font-size: .875rem; color: rgba(74,53,72,.5); margin-bottom: .5rem; }
 .card-link { margin-top: auto; font-size: .75rem; font-weight: 500; color: var(--purple); text-decoration: none; transition: color .2s; }
 .card-link:hover { color: var(--pink); }
+.card-audio { width: 100%; margin-top: .5rem; border-radius: 999px; height: 36px; }
+.card-audio::-webkit-media-controls-panel { background: rgba(252,231,243,.4); border-radius: 999px; }
+.song-upload-zone { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; flex-wrap: wrap; }
+.song-upload-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1.2rem; border-radius: 999px; border: 2px dashed var(--purple); background: rgba(196,181,253,.1); cursor: pointer; font-size: .85rem; font-weight: 600; color: rgba(74,53,72,.6); transition: all .3s; }
+.song-upload-btn:hover { background: rgba(196,181,253,.2); border-color: var(--pink); }
+.song-file-name { font-size: .8rem; color: rgba(74,53,72,.5); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-or-divider { display: flex; align-items: center; gap: .75rem; margin-bottom: .75rem; color: rgba(74,53,72,.3); font-size: .8rem; }
+.song-or-divider::before, .song-or-divider::after { content: ''; flex: 1; height: 1px; background: rgba(196,181,253,.2); }
 
 /* Empty state */
 .empty-state { text-align: center; padding: 4rem 0; animation: fadeIn .5s ease-out .5s both; }
@@ -457,8 +465,23 @@ async function createSong(song) {
 }
 async function deleteSong(id) {
   if (!sb) return false;
+  // Try to delete uploaded audio from storage
+  const { data: song } = await sb.from('songs').select('url').eq('id', id).single();
+  if (song && song.url && song.url.includes('/storage/v1/object/public/media/')) {
+    const storagePath = song.url.split('/storage/v1/object/public/media/')[1];
+    if (storagePath) await sb.storage.from('media').remove([decodeURIComponent(storagePath)]);
+  }
   const { error } = await sb.from('songs').delete().eq('id', id);
   return !error;
+}
+async function uploadSongFile(file) {
+  if (!sb) return null;
+  const ext = file.name.split('.').pop();
+  const path = `songs/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error: ue } = await sb.storage.from('media').upload(path, file);
+  if (ue) { console.error(ue); return null; }
+  const { data: ud } = sb.storage.from('media').getPublicUrl(path);
+  return ud.publicUrl;
 }
 async function fetchCoverPhoto() {
   if (!sb) return null;
@@ -744,7 +767,29 @@ async function removeLetter(id) {
 
 // ===== SONGS SECTION =====
 let showSongForm = false;
-let songDraft = { title: '', artist: '', url: '', emoji: '🎵' };
+let songDraft = { title: '', artist: '', url: '', emoji: '🎵', file: null, fileName: '' };
+const AUDIO_EXTS = ['mp3','wav','ogg','flac','aac','m4a','wma','opus','webm','aiff','ape','alac'];
+function isAudioUrl(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return AUDIO_EXTS.some(ext => lower.includes('.' + ext));
+}
+function handleSongFileInput(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  songDraft.file = file;
+  songDraft.fileName = file.name;
+  // Auto-fill title from filename if empty
+  if (!songDraft.title.trim()) {
+    songDraft.title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+  }
+  renderSongs();
+}
+function clearSongFile() {
+  songDraft.file = null;
+  songDraft.fileName = '';
+  renderSongs();
+}
 function renderSongs() {
   const sec = $.sectionSongs;
   let html = '';
@@ -753,17 +798,33 @@ function renderSongs() {
   } else {
     html += `<div class="form-card"><div class="form-header"><span>${songDraft.emoji}</span><input class="form-input" placeholder="Song title..." value="${esc(songDraft.title)}" oninput="songDraft.title=this.value"></div>`;
     html += `<input class="form-input-full" placeholder="Artist name..." value="${esc(songDraft.artist)}" oninput="songDraft.artist=this.value">`;
-    html += `<input class="form-input-full" placeholder="Song URL (optional)..." value="${esc(songDraft.url)}" oninput="songDraft.url=this.value">`;
+    // File upload zone
+    html += `<input type="file" id="song-file-input" accept="audio/*,.mp3,.wav,.ogg,.flac,.aac,.m4a,.wma,.opus,.webm,.aiff,.ape,.alac" style="display:none" onchange="handleSongFileInput(event)">`;
+    html += `<div class="song-upload-zone">`;
+    html += `<button class="song-upload-btn" onclick="document.getElementById('song-file-input').click()">🎵 Upload Song File</button>`;
+    if (songDraft.fileName) {
+      html += `<span class="song-file-name">📎 ${esc(songDraft.fileName)}</span>`;
+      html += `<button style="background:none;border:none;cursor:pointer;font-size:.9rem" onclick="clearSongFile()">✕</button>`;
+    } else {
+      html += `<span style="font-size:.8rem;color:rgba(74,53,72,.35)">MP3, WAV, FLAC, OGG, AAC & more</span>`;
+    }
+    html += `</div>`;
+    html += `<div class="song-or-divider">or paste a link</div>`;
+    html += `<input class="form-input-full" placeholder="Song URL (Spotify, YouTube, etc.)..." value="${esc(songDraft.url)}" oninput="songDraft.url=this.value" ${songDraft.file ? 'disabled style="opacity:.4"' : ''}>`;
     html += `<div class="emoji-picker">${SONG_EMOJIS.map(e => `<button class="emoji-btn ${songDraft.emoji===e?'active':''}" onclick="songDraft.emoji='${e}'; renderSongs()">${e}</button>`).join('')}</div>`;
-    html += `<div class="form-actions"><button class="btn-cancel" onclick="showSongForm=false; songDraft={title:'',artist:'',url:'',emoji:'🎵'}; renderSongs()">Cancel</button><button class="btn btn-primary" onclick="submitSong()" ${!songDraft.title.trim()?'disabled':''}>🎵 Add Song</button></div></div>`;
+    html += `<div class="form-actions"><button class="btn-cancel" onclick="showSongForm=false; songDraft={title:'',artist:'',url:'',emoji:'🎵',file:null,fileName:''}; renderSongs()">Cancel</button><button class="btn btn-primary" onclick="submitSong()" ${!songDraft.title.trim()?'disabled':''}>🎵 Add Song</button></div></div>`;
   }
   if (state.songs.length) {
     html += `<div class="cards-grid">${state.songs.map((s, i) => {
       const grad = CARD_COLORS[i % CARD_COLORS.length];
       const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      let link = '';
-      if (s.url) link = `<a class="card-link" href="${esc(s.url)}" target="_blank" rel="noopener">🔗 Listen</a>`;
-      return `<div class="card-wrapper draggable" draggable="true" style="animation-delay:${i*.05}s" ondragstart="onDragStart(event,'songs',${i})" ondragend="onDragEnd(event)" ondragover="onDragOverCard(event)" ondrop="onDropCard(event,'songs',${i})"><span class="drag-handle" title="Drag to reorder">⋮⋮</span><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${s.emoji||'🎵'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(s.title)}</div>${s.artist ? `<div class="card-artist">by ${esc(s.artist)}</div>` : ''}${link}</div></div><button class="delete-btn" onclick="removeSong(${s.id})">✕</button></div>`;
+      let media = '';
+      if (s.url && isAudioUrl(s.url)) {
+        media = `<audio class="card-audio" controls preload="metadata"><source src="${esc(s.url)}">Your browser does not support audio.</audio>`;
+      } else if (s.url) {
+        media = `<a class="card-link" href="${esc(s.url)}" target="_blank" rel="noopener">🔗 Listen</a>`;
+      }
+      return `<div class="card-wrapper draggable" draggable="true" style="animation-delay:${i*.05}s" ondragstart="onDragStart(event,'songs',${i})" ondragend="onDragEnd(event)" ondragover="onDragOverCard(event)" ondrop="onDropCard(event,'songs',${i})"><span class="drag-handle" title="Drag to reorder">⋮⋮</span><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${s.emoji||'🎵'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(s.title)}</div>${s.artist ? `<div class="card-artist">by ${esc(s.artist)}</div>` : ''}${media}</div></div><button class="delete-btn" onclick="removeSong(${s.id})">✕</button></div>`;
     }).join('')}</div>`;
   } else if (!showSongForm) {
     html += `<div class="empty-state"><span class="empty-icon wiggle">🎵</span><p class="empty-title">No songs yet~</p><p class="empty-sub">Add your favorite songs above! 🎶</p></div>`;
@@ -771,10 +832,17 @@ function renderSongs() {
   sec.innerHTML = html;
 }
 async function submitSong() {
-  const s = await createSong({ title: songDraft.title.trim(), artist: songDraft.artist.trim(), url: songDraft.url.trim() || null, emoji: songDraft.emoji });
+  let url = songDraft.url.trim() || null;
+  // If a file was selected, upload it first
+  if (songDraft.file) {
+    const uploadedUrl = await uploadSongFile(songDraft.file);
+    if (uploadedUrl) url = uploadedUrl;
+    else { alert('Failed to upload song file 😢'); return; }
+  }
+  const s = await createSong({ title: songDraft.title.trim(), artist: songDraft.artist.trim(), url, emoji: songDraft.emoji });
   if (s) { state.songs = [s, ...state.songs]; }
   showSongForm = false;
-  songDraft = { title: '', artist: '', url: '', emoji: '🎵' };
+  songDraft = { title: '', artist: '', url: '', emoji: '🎵', file: null, fileName: '' };
   renderSongs();
 }
 async function removeSong(id) {
