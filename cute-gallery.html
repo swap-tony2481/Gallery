@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ Cute Gallery ✨</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💖</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #fef6ff; --fg: #4a3548;
+  --pink: #f9a8d4; --pink-light: #fce7f3;
+  --purple: #c4b5fd; --purple-light: #ede9fe;
+  --mint: #a7f3d0; --mint-light: #d1fae5;
+  --peach: #fed7aa; --peach-light: #fff7ed;
+  --blue: #bfdbfe; --yellow: #fde68a;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+.app-container { position: relative; z-index: 10; max-width: 1152px; margin: 0 auto; padding: 2rem 1rem; }
+
+/* Floating hearts */
+.floating-hearts-container { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.floating-heart { position: absolute; bottom: -30px; animation: float-up linear infinite; }
+@keyframes float-up { 0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) rotate(360deg) scale(0); opacity: 0; } }
+@keyframes wiggle { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes sparkle { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.3); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+.wiggle { animation: wiggle 1s ease-in-out infinite; }
+.sparkle { animation: sparkle 2s ease-in-out infinite; }
+.fade-in { animation: fadeIn .5s ease-out both; }
+.scale-in { animation: scaleIn .4s ease-out both; }
+
+/* Header */
+.header { text-align: center; margin-bottom: 2rem; animation: fadeIn .6s ease-out; }
+.main-title { font-size: clamp(2.5rem, 6vw, 3.75rem); font-weight: 800; background: linear-gradient(to right, var(--pink), var(--purple), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.subtitle { margin-top: .75rem; font-size: 1.1rem; color: rgba(74,53,72,.6); }
+
+/* Cover Photo */
+.cover-photo-wrapper { display: flex; flex-direction: column; align-items: center; margin-bottom: 1rem; position: relative; }
+.cover-photo-circle { width: 128px; height: 128px; border-radius: 50%; padding: 4px; position: relative; cursor: pointer; transition: all .3s; }
+.cover-photo-circle:hover { transform: scale(1.05); box-shadow: 0 8px 25px rgba(249,168,212,.3); }
+.cover-photo-inner { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
+.cover-placeholder { font-size: 3rem; }
+.cover-img { width: 100%; height: 100%; object-fit: cover; }
+.cover-hover-overlay { position: absolute; inset: 4px; border-radius: 50%; background: rgba(0,0,0,.3); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .3s; color: #fff; font-size: .875rem; font-weight: 500; }
+.cover-photo-circle:hover .cover-hover-overlay { opacity: 1; }
+.sparkle-deco { position: absolute; top: -4px; right: -4px; font-size: 1.1rem; animation: sparkle 2s ease-in-out infinite; }
+.edit-cover-btn { position: absolute; bottom: -4px; right: calc(50% - 80px); width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 1px solid rgba(196,181,253,.3); box-shadow: 0 2px 8px rgba(0,0,0,.1); cursor: pointer; font-size: .875rem; display: flex; align-items: center; justify-content: center; transition: transform .2s; }
+.edit-cover-btn:hover { transform: scale(1.1); }
+
+/* Cover editor */
+.cover-editor { margin-top: 1rem; background: rgba(255,255,255,.8); backdrop-filter: blur(12px); border-radius: 1rem; padding: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,.08); border: 1px solid rgba(196,181,253,.2); width: 288px; margin-left: auto; margin-right: auto; animation: fadeIn .3s ease-out; }
+.editor-title { font-size: .875rem; font-weight: 600; color: rgba(74,53,72,.7); margin-bottom: .75rem; text-align: center; }
+.slider-label { display: block; font-size: .75rem; color: rgba(74,53,72,.5); margin-bottom: .25rem; }
+.slider { width: 100%; height: 8px; border-radius: 999px; appearance: none; -webkit-appearance: none; outline: none; margin-bottom: .75rem; }
+.slider-pink { background: linear-gradient(to right, var(--pink-light), var(--purple-light)); }
+.slider-pink::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--pink); cursor: pointer; }
+.slider-mint { background: linear-gradient(to right, var(--mint-light), var(--blue)); }
+.slider-mint::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--purple); cursor: pointer; }
+.border-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin-bottom: 1rem; }
+.border-opt { width: 100%; aspect-ratio: 1; border-radius: 50%; padding: 2px; cursor: pointer; transition: all .2s; opacity: .7; border: none; }
+.border-opt:hover { transform: scale(1.05); opacity: 1; }
+.border-opt.active { opacity: 1; transform: scale(1.1); outline: 2px solid var(--purple); outline-offset: 2px; }
+.border-opt-inner { width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,.6); display: flex; align-items: center; justify-content: center; font-size: .875rem; }
+.editor-actions { display: flex; gap: .5rem; }
+
+/* Buttons */
+.btn { padding: .625rem 1.25rem; border-radius: 999px; font-size: .875rem; font-weight: 600; border: none; cursor: pointer; transition: all .2s; flex: 1; }
+.btn:hover { transform: scale(1.05); }
+.btn:active { transform: scale(.95); }
+.btn-primary { background: linear-gradient(to right, var(--pink), var(--purple)); color: #fff; box-shadow: 0 4px 12px rgba(249,168,212,.3); }
+.btn-secondary { background: #fff; color: rgba(74,53,72,.6); border: 1px solid rgba(196,181,253,.2); }
+.btn-mint { background: linear-gradient(to right, var(--blue), var(--mint)); color: #fff; box-shadow: 0 4px 12px rgba(167,243,208,.3); }
+.btn:disabled { opacity: .5; transform: none; cursor: not-allowed; }
+
+/* Tabs */
+.section-tabs { display: flex; gap: .75rem; justify-content: center; margin-bottom: 2.5rem; animation: fadeIn .4s ease-out .15s both; }
+.tab-btn { display: flex; align-items: center; gap: .5rem; padding: .75rem 1.5rem; border-radius: 999px; font-weight: 600; font-size: 1rem; border: 1px solid rgba(196,181,253,.2); background: rgba(255,255,255,.7); color: rgba(74,53,72,.7); cursor: pointer; transition: all .3s; }
+.tab-btn:hover { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.08); transform: scale(1.05); }
+.tab-btn.active { background: linear-gradient(to right, var(--pink), var(--purple)); color: #fff; border-color: transparent; box-shadow: 0 4px 15px rgba(249,168,212,.3); transform: scale(1.05); }
+.tab-btn span:first-child { font-size: 1.25rem; }
+
+/* Upload zone */
+.upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding: 2rem; border: 3px dashed rgba(196,181,253,.5); border-radius: 1.5rem; background: rgba(255,255,255,.6); transition: all .3s; margin-bottom: 2rem; animation: fadeIn .5s ease-out .2s both; }
+.upload-zone.dragging { border-color: var(--pink); background: var(--pink-light); transform: scale(1.02); box-shadow: 0 8px 25px rgba(249,168,212,.2); }
+.upload-zone:hover { border-color: var(--pink); background: rgba(252,231,243,.3); }
+.upload-icon { font-size: 3rem; }
+.upload-title { margin-top: .75rem; font-size: 1.1rem; font-weight: 600; color: rgba(74,53,72,.8); }
+.upload-hint { margin-top: .25rem; font-size: .875rem; color: rgba(74,53,72,.5); }
+.upload-buttons { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; justify-content: center; }
+.uploading-text { text-align: center; margin-top: .75rem; color: rgba(74,53,72,.5); font-size: .875rem; animation: fadeIn .3s ease-out; }
+.desktop-only { display: block; }
+.mobile-only { display: none; }
+@media (max-width: 768px) { .desktop-only { display: none; } .mobile-only { display: block; } .cover-photo-circle { width: 112px; height: 112px; } }
+
+/* Filter bar */
+.filter-bar { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
+.filter-btn { display: flex; align-items: center; gap: .5rem; padding: .625rem 1.25rem; border-radius: 999px; font-weight: 500; font-size: .875rem; border: 1px solid rgba(196,181,253,.2); background: rgba(255,255,255,.7); color: rgba(74,53,72,.7); cursor: pointer; transition: all .3s; }
+.filter-btn:hover { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.08); transform: scale(1.05); }
+.filter-btn.active { background: linear-gradient(to right, var(--pink), var(--purple)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(249,168,212,.3); transform: scale(1.05); }
+.filter-count { margin-left: .25rem; font-size: .75rem; padding: .125rem .5rem; border-radius: 999px; }
+.filter-btn.active .filter-count { background: rgba(255,255,255,.3); }
+.filter-btn:not(.active) .filter-count { background: var(--purple-light); }
+
+/* Gallery grid */
+.gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+@media (min-width: 640px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 768px) { .gallery-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* Media card */
+.media-card { position: relative; animation: scaleIn .4s ease-out both; }
+.media-card-inner { position: relative; overflow: hidden; border-radius: 1rem; padding: 4px; cursor: pointer; transition: all .3s; }
+.media-card-inner:hover { box-shadow: 0 8px 25px rgba(249,168,212,.2); transform: translateY(-4px); }
+.media-card-media { position: relative; overflow: hidden; border-radius: .75rem; background: #fff; aspect-ratio: 1; }
+.media-card-media img, .media-card-media video { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+.media-card-inner:hover img { transform: scale(1.1); }
+.video-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.1); transition: background .3s; font-size: 1.875rem; }
+.media-card-inner:hover .video-overlay { background: transparent; }
+.media-card-info { position: absolute; inset: 4px; border-radius: .75rem; background: linear-gradient(to top, rgba(0,0,0,.4), transparent); display: flex; align-items: flex-end; padding: .75rem; opacity: 0; transition: opacity .3s; }
+.media-card-inner:hover .media-card-info { opacity: 1; }
+.media-card-info p { color: #fff; font-size: .875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.delete-btn { position: absolute; top: -8px; right: -8px; width: 32px; height: 32px; background: #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; font-size: .875rem; border: 2px solid var(--pink); cursor: pointer; opacity: 0; transform: scale(.5); transition: all .2s; z-index: 10; }
+.media-card:hover .delete-btn, .card-wrapper:hover .delete-btn { opacity: 1; transform: scale(1); }
+.delete-btn:hover { background: #fef2f2; transform: scale(1.1) !important; }
+
+/* Card colors */
+.grad-0 { background: linear-gradient(135deg, var(--pink-light), var(--purple-light)); }
+.grad-1 { background: linear-gradient(135deg, var(--purple-light), var(--blue)); }
+.grad-2 { background: linear-gradient(135deg, var(--mint-light), var(--blue)); }
+.grad-3 { background: linear-gradient(135deg, var(--peach-light), var(--yellow)); }
+.grad-4 { background: linear-gradient(135deg, var(--pink-light), var(--peach-light)); }
+
+/* Border styles for cover photo */
+.border-gradient-pink { background: linear-gradient(135deg, var(--pink), var(--purple), var(--blue)); }
+.border-gradient-mint { background: linear-gradient(135deg, var(--mint), var(--blue), var(--purple)); }
+.border-gradient-peach { background: linear-gradient(135deg, var(--peach), var(--yellow), var(--pink)); }
+.border-gradient-purple { background: linear-gradient(135deg, var(--purple), var(--pink), var(--blue)); }
+.border-solid-pink { background: var(--pink); }
+.border-solid-purple { background: var(--purple); }
+.border-solid-mint { background: var(--mint); }
+.border-solid-white { background: #fff; }
+
+/* Letters & Songs form */
+.add-btn-zone { width: 100%; padding: 2rem; border: 3px dashed rgba(196,181,253,.5); border-radius: 1.5rem; background: rgba(255,255,255,.6); cursor: pointer; transition: all .3s; margin-bottom: 2rem; text-align: center; }
+.add-btn-zone:hover { border-color: var(--pink); background: rgba(252,231,243,.3); box-shadow: 0 2px 10px rgba(249,168,212,.1); }
+.form-card { background: rgba(255,255,255,.8); backdrop-filter: blur(12px); border-radius: 1.5rem; padding: 1.5rem; border: 2px solid rgba(196,181,253,.2); box-shadow: 0 4px 20px rgba(249,168,212,.1); margin-bottom: 2rem; animation: fadeIn .3s ease-out; }
+.form-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.form-header span { font-size: 1.875rem; }
+.form-input { flex: 1; font-size: 1.1rem; font-weight: 600; background: transparent; outline: none; border: none; color: var(--fg); }
+.form-input::placeholder { color: rgba(74,53,72,.3); }
+.form-textarea { width: 100%; background: rgba(252,231,243,.2); border-radius: 1rem; padding: 1rem; outline: none; resize: none; border: 1px solid rgba(196,181,253,.1); color: var(--fg); font-family: inherit; font-size: .9rem; transition: border-color .3s; }
+.form-textarea:focus, .form-input-full:focus { border-color: var(--pink); }
+.form-input-full { width: 100%; background: rgba(252,231,243,.2); border-radius: 1rem; padding: 1rem; outline: none; border: 1px solid rgba(196,181,253,.1); color: var(--fg); font-family: inherit; font-size: .9rem; margin-bottom: .75rem; transition: border-color .3s; }
+.form-input-full::placeholder, .form-textarea::placeholder { color: rgba(74,53,72,.3); }
+.emoji-picker { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+.emoji-btn { font-size: 1.5rem; padding: .375rem; border-radius: 50%; border: none; background: transparent; cursor: pointer; transition: all .2s; }
+.emoji-btn:hover { background: var(--purple-light); transform: scale(1.1); }
+.emoji-btn.active { background: var(--pink-light); transform: scale(1.25); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.form-actions { display: flex; gap: .75rem; margin-top: 1rem; justify-content: flex-end; }
+.btn-cancel { padding: .625rem 1.25rem; border-radius: 999px; font-size: .875rem; font-weight: 500; border: none; background: transparent; color: rgba(74,53,72,.6); cursor: pointer; transition: all .2s; }
+.btn-cancel:hover { background: rgba(252,231,243,.4); }
+
+/* Letter & Song cards */
+.cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 640px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 768px) { .cards-grid { grid-template-columns: repeat(3, 1fr); } }
+.card-wrapper { position: relative; animation: scaleIn .4s ease-out both; }
+.card-outer { position: relative; overflow: hidden; border-radius: 1rem; padding: 4px; transition: all .3s; }
+.card-outer:hover { box-shadow: 0 8px 25px rgba(249,168,212,.2); transform: translateY(-4px); }
+.card-body { border-radius: .75rem; background: rgba(255,255,255,.9); backdrop-filter: blur(4px); padding: 1.25rem; min-height: 160px; display: flex; flex-direction: column; }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .5rem; }
+.card-top span:first-child { font-size: 1.875rem; }
+.card-date { font-size: .75rem; color: rgba(74,53,72,.3); }
+.card-title { font-weight: 700; color: rgba(74,53,72,.8); font-size: 1.1rem; margin-bottom: .5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-text { font-size: .875rem; color: rgba(74,53,72,.6); line-height: 1.6; flex: 1; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.card-artist { font-size: .875rem; color: rgba(74,53,72,.5); margin-bottom: .5rem; }
+.card-link { margin-top: auto; font-size: .75rem; font-weight: 500; color: var(--purple); text-decoration: none; transition: color .2s; }
+.card-link:hover { color: var(--pink); }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 4rem 0; animation: fadeIn .5s ease-out .5s both; }
+.empty-icon { font-size: 4.5rem; display: inline-block; }
+.empty-title { margin-top: 1rem; font-size: 1.25rem; color: rgba(74,53,72,.5); font-weight: 500; }
+.empty-sub { margin-top: .5rem; color: rgba(74,53,72,.4); }
+
+/* Lightbox */
+.lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); backdrop-filter: blur(12px); animation: fadeIn .2s ease-out; }
+.lb-deco { position: absolute; font-size: 1.875rem; animation: sparkle 2s ease-in-out infinite; }
+.lb-tl { top: 1.5rem; left: 1.5rem; } .lb-tr { top: 1.5rem; right: 1.5rem; animation-delay: .5s; }
+.lb-bl { bottom: 1.5rem; left: 1.5rem; animation-delay: 1s; } .lb-br { bottom: 1.5rem; right: 1.5rem; animation-delay: 1.5s; }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 2px 10px rgba(0,0,0,.12); border: none; font-size: 1.25rem; cursor: pointer; transition: all .2s; z-index: 10; }
+.lb-nav:hover { transform: translateY(-50%) scale(1.1); background: var(--pink-light); }
+.lb-prev { left: 1rem; } .lb-next { right: 1rem; }
+@media (min-width: 768px) { .lb-prev { left: 2rem; } .lb-next { right: 2rem; } }
+.lb-close { position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.9); box-shadow: 0 2px 10px rgba(0,0,0,.12); border: none; font-size: 1.1rem; cursor: pointer; transition: all .2s; z-index: 10; }
+.lb-close:hover { transform: scale(1.1); background: var(--pink-light); }
+.lb-content { max-width: 85vw; max-height: 85vh; border-radius: 1rem; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,.25); }
+.lb-frame { background: linear-gradient(135deg, var(--pink-light), var(--purple-light), var(--blue)); padding: 4px; border-radius: 1rem; }
+.lb-media-wrap { border-radius: .75rem; overflow: hidden; background: #000; position: relative; }
+.lb-media-wrap img, .lb-media-wrap video { max-width: 83vw; max-height: 83vh; object-fit: contain; display: block; }
+.lb-title-bar { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,.5), transparent); padding: 1rem; text-align: center; color: #fff; font-weight: 500; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--pink-light); border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--pink); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #f472b6; }
+</style>
+</head>
+<body>
+
+<!-- Floating hearts container -->
+<div id="floating-hearts" class="floating-hearts-container"></div>
+
+<!-- Main app -->
+<div class="app-container">
+  <!-- Header -->
+  <header class="header" id="header">
+    <!-- Cover photo -->
+    <div class="cover-photo-wrapper" id="cover-photo-wrapper">
+      <div class="cover-photo-circle" id="cover-photo-circle" onclick="triggerCoverUpload()">
+        <div class="cover-photo-inner" id="cover-photo-inner">
+          <span class="cover-placeholder" id="cover-placeholder">📷</span>
+          <img id="cover-img" class="cover-img" style="display:none" alt="Cover photo">
+        </div>
+        <div class="cover-hover-overlay" id="cover-hover-overlay">
+          <span>📷 Change</span>
+        </div>
+        <span class="sparkle-deco">✨</span>
+      </div>
+      <button class="edit-cover-btn" id="edit-cover-btn" onclick="toggleCoverEditor()" style="display:none">✏️</button>
+      <input type="file" id="cover-input" accept="image/*" style="display:none" onchange="handleCoverUpload(event)">
+    </div>
+
+    <!-- Cover photo editor -->
+    <div class="cover-editor" id="cover-editor" style="display:none">
+      <p class="editor-title">✨ Edit Cover Photo ✨</p>
+      <label class="slider-label">↔️ Horizontal Position</label>
+      <input type="range" id="cover-pos-x" min="0" max="100" value="50" class="slider slider-pink" oninput="updateCoverPreview()">
+      <label class="slider-label">↕️ Vertical Position</label>
+      <input type="range" id="cover-pos-y" min="0" max="100" value="50" class="slider slider-mint" oninput="updateCoverPreview()">
+      <label class="slider-label">🎨 Border Style</label>
+      <div class="border-picker" id="border-picker"></div>
+      <div class="editor-actions">
+        <button class="btn btn-primary" onclick="saveCoverSettings()">💾 Save</button>
+        <button class="btn btn-secondary" onclick="cancelCoverEditor()">✖️ Cancel</button>
+      </div>
+    </div>
+
+    <h1 class="main-title">✨ Cute Gallery ✨</h1>
+    <p class="subtitle">Your adorable collection of photos, videos, letters & songs 🌸</p>
+  </header>
+
+  <!-- Section tabs -->
+  <div class="section-tabs">
+    <button class="tab-btn active" data-section="gallery" onclick="switchSection('gallery')">
+      <span>🖼️</span><span>Gallery</span>
+    </button>
+    <button class="tab-btn" data-section="letters" onclick="switchSection('letters')">
+      <span>💌</span><span>Letters</span>
+    </button>
+    <button class="tab-btn" data-section="songs" onclick="switchSection('songs')">
+      <span>🎵</span><span>Songs</span>
+    </button>
+  </div>
+
+  <!-- GALLERY SECTION -->
+  <div id="section-gallery" class="section">
+    <div class="upload-zone" id="upload-zone"
+      ondragover="event.preventDefault(); this.classList.add('dragging')"
+      ondragleave="this.classList.remove('dragging')"
+      ondrop="handleDrop(event)">
+      <input type="file" id="browse-input" multiple accept="image/*,video/*" style="display:none" onchange="handleFileInput(event)">
+      <input type="file" id="camera-input" accept="image/*,video/*" capture="environment" style="display:none" onchange="handleFileInput(event)">
+      <span class="upload-icon">📸</span>
+      <p class="upload-title">Upload photos & videos</p>
+      <p class="upload-hint desktop-only">Drag & drop or use the buttons below ✨</p>
+      <p class="upload-hint mobile-only">Select multiple from gallery or take a photo 📱</p>
+      <div class="upload-buttons">
+        <button class="btn btn-primary" onclick="document.getElementById('browse-input').click()">🖼️ Browse Files</button>
+        <button class="btn btn-mint" onclick="document.getElementById('camera-input').click()">📷 Take Photo</button>
+      </div>
+    </div>
+    <p class="uploading-text" id="uploading-text" style="display:none">Uploading... 💫</p>
+    <div class="filter-bar" id="filter-bar" style="display:none"></div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+    <div class="empty-state" id="gallery-empty">
+      <span class="empty-icon wiggle">🌸</span>
+      <p class="empty-title">Your gallery is empty~</p>
+      <p class="empty-sub">Add some cute photos and videos above! 💕</p>
+    </div>
+  </div>
+
+  <!-- LETTERS SECTION -->
+  <div id="section-letters" class="section" style="display:none"></div>
+
+  <!-- SONGS SECTION -->
+  <div id="section-songs" class="section" style="display:none"></div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" style="display:none" onclick="closeLightbox()">
+  <span class="lb-deco lb-tl">✨</span><span class="lb-deco lb-tr">🌸</span>
+  <span class="lb-deco lb-bl">💖</span><span class="lb-deco lb-br">⭐</span>
+  <button class="lb-nav lb-prev" onclick="event.stopPropagation(); prevLightbox()">←</button>
+  <button class="lb-nav lb-next" onclick="event.stopPropagation(); nextLightbox()">→</button>
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <div class="lb-content" onclick="event.stopPropagation()" id="lb-content"></div>
+</div>
+
+<script>
+// ===== CONFIG - PUT YOUR SUPABASE CREDENTIALS HERE =====
+const SUPABASE_URL = 'https://poviyhchcxwyhqpepuvc.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ljwpo9mXgQFRqNFdyK4TSA_s-V1LOR4';
+
+let sb = null;
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ===== STATE =====
+let state = {
+  section: 'gallery',
+  items: [], letters: [], songs: [],
+  filter: 'all', lightboxIndex: null,
+  isUploading: false,
+  coverPhoto: null, isCoverUploading: false,
+  coverSettings: { posX: 50, posY: 50, border: 'gradient-pink' },
+  editingCover: false,
+  editCoverDraft: { posX: 50, posY: 50, border: 'gradient-pink' },
+};
+
+const CARD_COLORS = ['grad-0','grad-1','grad-2','grad-3','grad-4'];
+const BORDER_STYLES = [
+  { key: 'gradient-pink', label: 'Pink Gradient', emoji: '💖', cls: 'border-gradient-pink' },
+  { key: 'gradient-mint', label: 'Mint Gradient', emoji: '🌿', cls: 'border-gradient-mint' },
+  { key: 'gradient-peach', label: 'Peach Gradient', emoji: '🍑', cls: 'border-gradient-peach' },
+  { key: 'gradient-purple', label: 'Purple Gradient', emoji: '💜', cls: 'border-gradient-purple' },
+  { key: 'solid-pink', label: 'Solid Pink', emoji: '🌸', cls: 'border-solid-pink' },
+  { key: 'solid-purple', label: 'Solid Purple', emoji: '🔮', cls: 'border-solid-purple' },
+  { key: 'solid-mint', label: 'Solid Mint', emoji: '🍀', cls: 'border-solid-mint' },
+  { key: 'solid-white', label: 'White', emoji: '⚪', cls: 'border-solid-white' },
+];
+const LETTER_EMOJIS = ['💌','💖','🌸','✨','🦋','🌷','💜','🎀','⭐','🍰'];
+const SONG_EMOJIS = ['🎵','🎶','🎤','🎧','🎸','🎹','💿','🎻','🪗','🥁'];
+
+// ===== SUPABASE HELPERS =====
+async function fetchMediaItems() {
+  if (!sb) return [];
+  const { data, error } = await sb.from('media_items').select('*').order('created_at', { ascending: false });
+  return error ? [] : (data || []);
+}
+async function uploadMediaItem(file) {
+  if (!sb) return null;
+  const ext = file.name.split('.').pop();
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error: ue } = await sb.storage.from('media').upload(path, file);
+  if (ue) { console.error(ue); return null; }
+  const { data: ud } = sb.storage.from('media').getPublicUrl(path);
+  const type = file.type.startsWith('video/') ? 'video' : 'image';
+  const { data, error } = await sb.from('media_items').insert({ url: ud.publicUrl, type, name: file.name, storage_path: path }).select().single();
+  return error ? null : data;
+}
+async function deleteMediaItem(id, storagePath) {
+  if (!sb) return false;
+  await sb.storage.from('media').remove([storagePath]);
+  const { error } = await sb.from('media_items').delete().eq('id', id);
+  return !error;
+}
+async function fetchLetters() {
+  if (!sb) return [];
+  const { data, error } = await sb.from('letters').select('*').order('created_at', { ascending: false });
+  return error ? [] : (data || []);
+}
+async function createLetter(letter) {
+  if (!sb) return null;
+  const { data, error } = await sb.from('letters').insert(letter).select().single();
+  return error ? null : data;
+}
+async function deleteLetter(id) {
+  if (!sb) return false;
+  const { error } = await sb.from('letters').delete().eq('id', id);
+  return !error;
+}
+async function fetchSongs() {
+  if (!sb) return [];
+  const { data, error } = await sb.from('songs').select('*').order('created_at', { ascending: false });
+  return error ? [] : (data || []);
+}
+async function createSong(song) {
+  if (!sb) return null;
+  const { data, error } = await sb.from('songs').insert(song).select().single();
+  return error ? null : data;
+}
+async function deleteSong(id) {
+  if (!sb) return false;
+  const { error } = await sb.from('songs').delete().eq('id', id);
+  return !error;
+}
+async function fetchCoverPhoto() {
+  if (!sb) return null;
+  const { data, error } = await sb.from('settings').select('value').eq('key', 'cover_photo').single();
+  return (error || !data) ? null : data.value;
+}
+async function uploadCoverPhoto(file) {
+  if (!sb) return null;
+  const ext = file.name.split('.').pop();
+  const path = `cover-${Date.now()}.${ext}`;
+  const { error: ue } = await sb.storage.from('media').upload(path, file, { upsert: true });
+  if (ue) { console.error(ue); return null; }
+  const { data: ud } = sb.storage.from('media').getPublicUrl(path);
+  const { error } = await sb.from('settings').upsert({ key: 'cover_photo', value: ud.publicUrl });
+  return error ? null : ud.publicUrl;
+}
+async function fetchCoverPhotoSettings() {
+  if (!sb) return { posX: 50, posY: 50, border: 'gradient-pink' };
+  const { data, error } = await sb.from('settings').select('value').eq('key', 'cover_photo_settings').single();
+  if (error || !data) return { posX: 50, posY: 50, border: 'gradient-pink' };
+  try { return { posX: 50, posY: 50, border: 'gradient-pink', ...JSON.parse(data.value) }; } catch { return { posX: 50, posY: 50, border: 'gradient-pink' }; }
+}
+async function saveCoverPhotoSettings(settings) {
+  if (!sb) return false;
+  const { error } = await sb.from('settings').upsert({ key: 'cover_photo_settings', value: JSON.stringify(settings) });
+  return !error;
+}
+
+// ===== FLOATING HEARTS =====
+function initHearts() {
+  const c = document.getElementById('floating-hearts');
+  const hearts = ['💕','💖','💗','🌸','✨','🦋','💜','🎀','⭐','🌷'];
+  for (let i = 0; i < 15; i++) {
+    const s = document.createElement('span');
+    s.className = 'floating-heart';
+    s.textContent = hearts[i % hearts.length];
+    s.style.left = Math.random() * 100 + '%';
+    s.style.fontSize = (14 + Math.random() * 14) + 'px';
+    s.style.animationDuration = (10 + Math.random() * 15) + 's';
+    s.style.animationDelay = (Math.random() * 15) + 's';
+    s.style.opacity = 0.3 + Math.random() * 0.4;
+    c.appendChild(s);
+  }
+}
+
+// ===== RENDER: COVER PHOTO =====
+function renderCoverPhoto() {
+  const img = document.getElementById('cover-img');
+  const ph = document.getElementById('cover-placeholder');
+  const circle = document.getElementById('cover-photo-circle');
+  const editBtn = document.getElementById('edit-cover-btn');
+  const s = state.editingCover ? state.editCoverDraft : state.coverSettings;
+  const bs = BORDER_STYLES.find(b => b.key === s.border) || BORDER_STYLES[0];
+  circle.className = 'cover-photo-circle ' + bs.cls;
+  if (state.coverPhoto) {
+    img.src = state.coverPhoto;
+    img.style.display = 'block';
+    img.style.objectPosition = s.posX + '% ' + s.posY + '%';
+    ph.style.display = 'none';
+    editBtn.style.display = 'flex';
+  } else {
+    img.style.display = 'none';
+    ph.style.display = 'block';
+    editBtn.style.display = 'none';
+  }
+}
+
+// ===== COVER PHOTO EDITOR =====
+function initBorderPicker() {
+  const picker = document.getElementById('border-picker');
+  picker.innerHTML = BORDER_STYLES.map(b =>
+    `<button class="border-opt ${b.cls} ${state.editCoverDraft.border === b.key ? 'active' : ''}" data-key="${b.key}" onclick="selectBorder('${b.key}')"><div class="border-opt-inner">${b.emoji}</div></button>`
+  ).join('');
+}
+function selectBorder(key) {
+  state.editCoverDraft.border = key;
+  initBorderPicker();
+  renderCoverPhoto();
+}
+function toggleCoverEditor() {
+  state.editingCover = !state.editingCover;
+  if (state.editingCover) {
+    state.editCoverDraft = { ...state.coverSettings };
+    document.getElementById('cover-pos-x').value = state.editCoverDraft.posX;
+    document.getElementById('cover-pos-y').value = state.editCoverDraft.posY;
+    initBorderPicker();
+  }
+  document.getElementById('cover-editor').style.display = state.editingCover ? 'block' : 'none';
+  renderCoverPhoto();
+}
+function updateCoverPreview() {
+  state.editCoverDraft.posX = +document.getElementById('cover-pos-x').value;
+  state.editCoverDraft.posY = +document.getElementById('cover-pos-y').value;
+  renderCoverPhoto();
+}
+async function saveCoverSettings() {
+  state.coverSettings = { ...state.editCoverDraft };
+  state.editingCover = false;
+  document.getElementById('cover-editor').style.display = 'none';
+  renderCoverPhoto();
+  await saveCoverPhotoSettings(state.coverSettings);
+}
+function cancelCoverEditor() {
+  state.editingCover = false;
+  document.getElementById('cover-editor').style.display = 'none';
+  renderCoverPhoto();
+}
+function triggerCoverUpload() {
+  if (state.editingCover) return;
+  document.getElementById('cover-input').click();
+}
+async function handleCoverUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.isCoverUploading = true;
+  const url = await uploadCoverPhoto(file);
+  if (url) { state.coverPhoto = url; renderCoverPhoto(); }
+  state.isCoverUploading = false;
+  e.target.value = '';
+}
+
+// ===== SECTION SWITCHING =====
+function switchSection(name) {
+  state.section = name;
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+  document.getElementById('section-' + name).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.section === name));
+}
+
+// ===== GALLERY RENDERING =====
+function getFilteredItems() {
+  if (state.filter === 'all') return state.items;
+  return state.items.filter(i => i.type === state.filter);
+}
+function renderFilterBar() {
+  const bar = document.getElementById('filter-bar');
+  if (!state.items.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const total = state.items.length;
+  const photos = state.items.filter(i => i.type === 'image').length;
+  const videos = state.items.filter(i => i.type === 'video').length;
+  bar.innerHTML = [
+    { key: 'all', emoji: '✨', label: 'All', count: total },
+    { key: 'image', emoji: '📸', label: 'Photos', count: photos },
+    { key: 'video', emoji: '🎬', label: 'Videos', count: videos },
+  ].map(f =>
+    `<button class="filter-btn ${state.filter === f.key ? 'active' : ''}" onclick="setFilter('${f.key}')">${f.emoji} ${f.label}<span class="filter-count">${f.count}</span></button>`
+  ).join('');
+}
+function setFilter(f) { state.filter = f; renderFilterBar(); renderGallery(); }
+
+function renderGallery() {
+  const grid = document.getElementById('gallery-grid');
+  const empty = document.getElementById('gallery-empty');
+  const filtered = getFilteredItems();
+  if (!filtered.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = filtered.map((item, idx) => {
+    const grad = CARD_COLORS[idx % CARD_COLORS.length];
+    const media = item.type === 'video'
+      ? `<video src="${item.url}" muted preload="metadata"></video><div class="video-overlay">▶️</div>`
+      : `<img src="${item.url}" alt="${item.name || ''}" loading="lazy">`;
+    return `<div class="media-card" style="animation-delay:${idx * .05}s">
+      <div class="media-card-inner ${grad}" onclick="openLightbox(${state.items.indexOf(item)})">
+        <div class="media-card-media">${media}</div>
+        <div class="media-card-info"><p>${item.name || ''}</p></div>
+      </div>
+      <button class="delete-btn" onclick="event.stopPropagation(); removeMedia(${item.id}, '${item.storage_path}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ===== UPLOAD HANDLERS =====
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragging');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+  if (files.length) uploadFiles(files);
+}
+function handleFileInput(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length) uploadFiles(files);
+  e.target.value = '';
+}
+async function uploadFiles(files) {
+  state.isUploading = true;
+  document.getElementById('uploading-text').style.display = 'block';
+  const results = await Promise.all(files.map(f => uploadMediaItem(f)));
+  const newItems = results.filter(Boolean);
+  state.items = [...newItems, ...state.items];
+  state.isUploading = false;
+  document.getElementById('uploading-text').style.display = 'none';
+  renderFilterBar();
+  renderGallery();
+}
+async function removeMedia(id, storagePath) {
+  if (!confirm('Delete this item? 🥺')) return;
+  const ok = await deleteMediaItem(id, storagePath);
+  if (ok) {
+    state.items = state.items.filter(i => i.id !== id);
+    renderFilterBar();
+    renderGallery();
+    if (state.lightboxIndex !== null) closeLightbox();
+  }
+}
+
+// ===== LIGHTBOX =====
+function openLightbox(idx) {
+  state.lightboxIndex = idx;
+  renderLightbox();
+  document.getElementById('lightbox').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  state.lightboxIndex = null;
+  document.getElementById('lightbox').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function prevLightbox() {
+  if (state.lightboxIndex > 0) { state.lightboxIndex--; renderLightbox(); }
+}
+function nextLightbox() {
+  if (state.lightboxIndex < state.items.length - 1) { state.lightboxIndex++; renderLightbox(); }
+}
+function renderLightbox() {
+  const item = state.items[state.lightboxIndex];
+  if (!item) return;
+  const lbc = document.getElementById('lb-content');
+  const media = item.type === 'video'
+    ? `<video src="${item.url}" controls autoplay class="lb-video"></video>`
+    : `<img src="${item.url}" alt="${item.name || ''}">`;
+  lbc.innerHTML = `<div class="lb-frame"><div class="lb-media-wrap">${media}${item.name ? `<div class="lb-title-bar">${item.name}</div>` : ''}</div></div>`;
+}
+document.addEventListener('keydown', e => {
+  if (state.lightboxIndex === null) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') prevLightbox();
+  if (e.key === 'ArrowRight') nextLightbox();
+});
+
+// ===== LETTERS SECTION =====
+let showLetterForm = false;
+let letterDraft = { title: '', content: '', emoji: '💌' };
+function renderLetters() {
+  const sec = document.getElementById('section-letters');
+  let html = '';
+  if (!showLetterForm) {
+    html += `<div class="add-btn-zone" onclick="showLetterForm=true; renderLetters()"><span style="font-size:2rem">💌</span><p style="margin-top:.5rem;font-weight:600;color:rgba(74,53,72,.6)">Write a new letter ✨</p></div>`;
+  } else {
+    html += `<div class="form-card"><div class="form-header"><span>${letterDraft.emoji}</span><input class="form-input" placeholder="Letter title..." value="${esc(letterDraft.title)}" oninput="letterDraft.title=this.value"></div>`;
+    html += `<textarea class="form-textarea" rows="5" placeholder="Write your letter here... 💕" oninput="letterDraft.content=this.value">${esc(letterDraft.content)}</textarea>`;
+    html += `<div class="emoji-picker">${LETTER_EMOJIS.map(e => `<button class="emoji-btn ${letterDraft.emoji===e?'active':''}" onclick="letterDraft.emoji='${e}'; renderLetters()">${e}</button>`).join('')}</div>`;
+    html += `<div class="form-actions"><button class="btn-cancel" onclick="showLetterForm=false; letterDraft={title:'',content:'',emoji:'💌'}; renderLetters()">Cancel</button><button class="btn btn-primary" onclick="submitLetter()" ${!letterDraft.title.trim()||!letterDraft.content.trim()?'disabled':''}>💌 Send Letter</button></div></div>`;
+  }
+  if (state.letters.length) {
+    html += `<div class="cards-grid">${state.letters.map((l, i) => {
+      const grad = CARD_COLORS[i % CARD_COLORS.length];
+      const date = new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `<div class="card-wrapper" style="animation-delay:${i*.05}s"><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${l.emoji||'💌'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(l.title)}</div><div class="card-text">${esc(l.content)}</div></div></div><button class="delete-btn" onclick="removeLetter(${l.id})">✕</button></div>`;
+    }).join('')}</div>`;
+  } else if (!showLetterForm) {
+    html += `<div class="empty-state"><span class="empty-icon wiggle">💌</span><p class="empty-title">No letters yet~</p><p class="empty-sub">Write a sweet letter above! 💕</p></div>`;
+  }
+  sec.innerHTML = html;
+}
+async function submitLetter() {
+  const l = await createLetter({ title: letterDraft.title.trim(), content: letterDraft.content.trim(), emoji: letterDraft.emoji });
+  if (l) { state.letters = [l, ...state.letters]; }
+  showLetterForm = false;
+  letterDraft = { title: '', content: '', emoji: '💌' };
+  renderLetters();
+}
+async function removeLetter(id) {
+  if (!confirm('Delete this letter? 🥺')) return;
+  if (await deleteLetter(id)) { state.letters = state.letters.filter(l => l.id !== id); renderLetters(); }
+}
+
+// ===== SONGS SECTION =====
+let showSongForm = false;
+let songDraft = { title: '', artist: '', url: '', emoji: '🎵' };
+function renderSongs() {
+  const sec = document.getElementById('section-songs');
+  let html = '';
+  if (!showSongForm) {
+    html += `<div class="add-btn-zone" onclick="showSongForm=true; renderSongs()"><span style="font-size:2rem">🎵</span><p style="margin-top:.5rem;font-weight:600;color:rgba(74,53,72,.6)">Add a new song ✨</p></div>`;
+  } else {
+    html += `<div class="form-card"><div class="form-header"><span>${songDraft.emoji}</span><input class="form-input" placeholder="Song title..." value="${esc(songDraft.title)}" oninput="songDraft.title=this.value"></div>`;
+    html += `<input class="form-input-full" placeholder="Artist name..." value="${esc(songDraft.artist)}" oninput="songDraft.artist=this.value">`;
+    html += `<input class="form-input-full" placeholder="Song URL (optional)..." value="${esc(songDraft.url)}" oninput="songDraft.url=this.value">`;
+    html += `<div class="emoji-picker">${SONG_EMOJIS.map(e => `<button class="emoji-btn ${songDraft.emoji===e?'active':''}" onclick="songDraft.emoji='${e}'; renderSongs()">${e}</button>`).join('')}</div>`;
+    html += `<div class="form-actions"><button class="btn-cancel" onclick="showSongForm=false; songDraft={title:'',artist:'',url:'',emoji:'🎵'}; renderSongs()">Cancel</button><button class="btn btn-primary" onclick="submitSong()" ${!songDraft.title.trim()?'disabled':''}>🎵 Add Song</button></div></div>`;
+  }
+  if (state.songs.length) {
+    html += `<div class="cards-grid">${state.songs.map((s, i) => {
+      const grad = CARD_COLORS[i % CARD_COLORS.length];
+      const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      let link = '';
+      if (s.url) link = `<a class="card-link" href="${esc(s.url)}" target="_blank" rel="noopener">🔗 Listen</a>`;
+      return `<div class="card-wrapper" style="animation-delay:${i*.05}s"><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${s.emoji||'🎵'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(s.title)}</div>${s.artist ? `<div class="card-artist">by ${esc(s.artist)}</div>` : ''}${link}</div></div><button class="delete-btn" onclick="removeSong(${s.id})">✕</button></div>`;
+    }).join('')}</div>`;
+  } else if (!showSongForm) {
+    html += `<div class="empty-state"><span class="empty-icon wiggle">🎵</span><p class="empty-title">No songs yet~</p><p class="empty-sub">Add your favorite songs above! 🎶</p></div>`;
+  }
+  sec.innerHTML = html;
+}
+async function submitSong() {
+  const s = await createSong({ title: songDraft.title.trim(), artist: songDraft.artist.trim(), url: songDraft.url.trim() || null, emoji: songDraft.emoji });
+  if (s) { state.songs = [s, ...state.songs]; }
+  showSongForm = false;
+  songDraft = { title: '', artist: '', url: '', emoji: '🎵' };
+  renderSongs();
+}
+async function removeSong(id) {
+  if (!confirm('Delete this song? 🥺')) return;
+  if (await deleteSong(id)) { state.songs = state.songs.filter(s => s.id !== id); renderSongs(); }
+}
+
+// ===== HELPER =====
+function esc(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===== INIT =====
+async function init() {
+  initHearts();
+  if (!sb) {
+    document.querySelector('.subtitle').textContent = '⚠️ Set SUPABASE_URL and SUPABASE_ANON_KEY in the script to connect!';
+    return;
+  }
+  const [items, letters, songs, cover, coverSettings] = await Promise.all([
+    fetchMediaItems(), fetchLetters(), fetchSongs(), fetchCoverPhoto(), fetchCoverPhotoSettings()
+  ]);
+  state.items = items;
+  state.letters = letters;
+  state.songs = songs;
+  state.coverPhoto = cover;
+  state.coverSettings = coverSettings;
+  state.editCoverDraft = { ...coverSettings };
+  renderCoverPhoto();
+  renderFilterBar();
+  renderGallery();
+  renderLetters();
+  renderSongs();
+}
+init();
+</script>
+</body>
+</html>
+
