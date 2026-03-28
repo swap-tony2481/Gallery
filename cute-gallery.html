@@ -3,9 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="A cute personal gallery for photos, videos, letters & songs 🌸">
+<meta name="theme-color" content="#fef6ff">
+<meta property="og:title" content="✨ Cute Gallery ✨">
+<meta property="og:description" content="Your adorable collection of photos, videos, letters & songs">
+<meta property="og:type" content="website">
 <title>✨ Cute Gallery ✨</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💖</text></svg>">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Preconnect to Supabase & CDN for faster loading -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://poviyhchcxwyhqpepuvc.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://poviyhchcxwyhqpepuvc.supabase.co">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <style>
 :root {
   --bg: #fef6ff; --fg: #4a3548;
@@ -20,8 +30,8 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .app-container { position: relative; z-index: 10; max-width: 1152px; margin: 0 auto; padding: 2rem 1rem; }
 
 /* Floating hearts */
-.floating-hearts-container { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
-.floating-heart { position: absolute; bottom: -30px; animation: float-up linear infinite; }
+.floating-hearts-container { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; contain: strict; }
+.floating-heart { position: absolute; bottom: -30px; animation: float-up linear infinite; will-change: transform, opacity; }
 @keyframes float-up { 0% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; } 100% { transform: translateY(-120vh) rotate(360deg) scale(0); opacity: 0; } }
 @keyframes wiggle { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 @keyframes sparkle { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.3); } }
@@ -75,6 +85,10 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .btn-mint { background: linear-gradient(to right, var(--blue), var(--mint)); color: #fff; box-shadow: 0 4px 12px rgba(167,243,208,.3); }
 .btn:disabled { opacity: .5; transform: none; cursor: not-allowed; }
 
+/* Sections - containment for off-screen content */
+.section { contain: layout style; }
+.section[style*="none"] { content-visibility: hidden; }
+
 /* Tabs */
 .section-tabs { display: flex; gap: .75rem; justify-content: center; margin-bottom: 2.5rem; animation: fadeIn .4s ease-out .15s both; }
 .tab-btn { display: flex; align-items: center; gap: .5rem; padding: .75rem 1.5rem; border-radius: 999px; font-weight: 600; font-size: 1rem; border: 1px solid rgba(196,181,253,.2); background: rgba(255,255,255,.7); color: rgba(74,53,72,.7); cursor: pointer; transition: all .3s; }
@@ -91,6 +105,12 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .upload-hint { margin-top: .25rem; font-size: .875rem; color: rgba(74,53,72,.5); }
 .upload-buttons { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; justify-content: center; }
 .uploading-text { text-align: center; margin-top: .75rem; color: rgba(74,53,72,.5); font-size: .875rem; animation: fadeIn .3s ease-out; }
+.progress-wrapper { width: 100%; max-width: 400px; margin: .75rem auto 0; display: none; animation: fadeIn .3s ease-out; }
+.progress-label { display: flex; justify-content: space-between; font-size: .75rem; color: rgba(74,53,72,.5); margin-bottom: .375rem; }
+.progress-track { width: 100%; height: 12px; background: var(--purple-light); border-radius: 999px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.06); }
+.progress-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(to right, var(--pink), var(--purple), var(--blue)); transition: width .3s ease; position: relative; overflow: hidden; }
+.progress-fill::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: shimmer 1.5s infinite; }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 .desktop-only { display: block; }
 .mobile-only { display: none; }
 @media (max-width: 768px) { .desktop-only { display: none; } .mobile-only { display: block; } .cover-photo-circle { width: 112px; height: 112px; } }
@@ -105,7 +125,7 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .filter-btn:not(.active) .filter-count { background: var(--purple-light); }
 
 /* Gallery grid */
-.gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; contain: layout style; }
 @media (min-width: 640px) { .gallery-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 768px) { .gallery-grid { grid-template-columns: repeat(4, 1fr); } }
 
@@ -124,6 +144,15 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .delete-btn { position: absolute; top: -8px; right: -8px; width: 32px; height: 32px; background: #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; font-size: .875rem; border: 2px solid var(--pink); cursor: pointer; opacity: 0; transform: scale(.5); transition: all .2s; z-index: 10; }
 .media-card:hover .delete-btn, .card-wrapper:hover .delete-btn { opacity: 1; transform: scale(1); }
 .delete-btn:hover { background: #fef2f2; transform: scale(1.1) !important; }
+
+/* Drag and drop reorder */
+.draggable { cursor: grab; user-select: none; }
+.draggable:active { cursor: grabbing; }
+.draggable.dragging { opacity: .4; transform: scale(.95); transition: opacity .2s, transform .2s; }
+.drag-over { outline: 3px dashed var(--pink); outline-offset: 4px; border-radius: 1rem; }
+.drag-handle { position: absolute; top: -8px; left: -8px; width: 28px; height: 28px; background: #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; font-size: .75rem; border: 2px solid var(--purple); cursor: grab; opacity: 0; transform: scale(.5); transition: all .2s; z-index: 10; }
+.media-card:hover .drag-handle, .card-wrapper:hover .drag-handle { opacity: 1; transform: scale(1); }
+.drag-handle:active { cursor: grabbing; background: var(--purple-light); }
 
 /* Card colors */
 .grad-0 { background: linear-gradient(135deg, var(--pink-light), var(--purple-light)); }
@@ -163,7 +192,7 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 .btn-cancel:hover { background: rgba(252,231,243,.4); }
 
 /* Letter & Song cards */
-.cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; contain: layout style; }
 @media (min-width: 640px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 768px) { .cards-grid { grid-template-columns: repeat(3, 1fr); } }
 .card-wrapper { position: relative; animation: scaleIn .4s ease-out both; }
@@ -223,7 +252,7 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
       <div class="cover-photo-circle" id="cover-photo-circle" onclick="triggerCoverUpload()">
         <div class="cover-photo-inner" id="cover-photo-inner">
           <span class="cover-placeholder" id="cover-placeholder">📷</span>
-          <img id="cover-img" class="cover-img" style="display:none" alt="Cover photo">
+          <img id="cover-img" class="cover-img" style="display:none" alt="Cover photo" fetchpriority="high" decoding="async">
         </div>
         <div class="cover-hover-overlay" id="cover-hover-overlay">
           <span>📷 Change</span>
@@ -283,7 +312,10 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
         <button class="btn btn-mint" onclick="document.getElementById('camera-input').click()">📷 Take Photo</button>
       </div>
     </div>
-    <p class="uploading-text" id="uploading-text" style="display:none">Uploading... 💫</p>
+    <div id="upload-progress" class="progress-wrapper">
+      <div class="progress-label"><span id="progress-status">Uploading... 💫</span><span id="progress-percent">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
     <div class="filter-bar" id="filter-bar" style="display:none"></div>
     <div class="gallery-grid" id="gallery-grid"></div>
     <div class="empty-state" id="gallery-empty">
@@ -316,8 +348,37 @@ const SUPABASE_URL = 'https://poviyhchcxwyhqpepuvc.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Ljwpo9mXgQFRqNFdyK4TSA_s-V1LOR4';
 
 let sb = null;
-if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function initSupabase() {
+  if (sb) return;
+  if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+}
+
+// ===== CACHED DOM REFS (populated on DOMContentLoaded) =====
+const $ = {};
+function cacheDom() {
+  $.gallery = document.getElementById('gallery-grid');
+  $.galleryEmpty = document.getElementById('gallery-empty');
+  $.filterBar = document.getElementById('filter-bar');
+  $.lightbox = document.getElementById('lightbox');
+  $.lbContent = document.getElementById('lb-content');
+  $.coverImg = document.getElementById('cover-img');
+  $.coverPh = document.getElementById('cover-placeholder');
+  $.coverCircle = document.getElementById('cover-photo-circle');
+  $.editCoverBtn = document.getElementById('edit-cover-btn');
+  $.coverEditor = document.getElementById('cover-editor');
+  $.borderPicker = document.getElementById('border-picker');
+  $.coverPosX = document.getElementById('cover-pos-x');
+  $.coverPosY = document.getElementById('cover-pos-y');
+  $.uploadProgress = document.getElementById('upload-progress');
+  $.progressFill = document.getElementById('progress-fill');
+  $.progressPct = document.getElementById('progress-percent');
+  $.progressStatus = document.getElementById('progress-status');
+  $.uploadZone = document.getElementById('upload-zone');
+  $.sectionLetters = document.getElementById('section-letters');
+  $.sectionSongs = document.getElementById('section-songs');
+  $.floatingHearts = document.getElementById('floating-hearts');
 }
 
 // ===== STATE =====
@@ -428,47 +489,40 @@ async function saveCoverPhotoSettings(settings) {
 
 // ===== FLOATING HEARTS =====
 function initHearts() {
-  const c = document.getElementById('floating-hearts');
+  const c = $.floatingHearts;
   const hearts = ['💕','💖','💗','🌸','✨','🦋','💜','🎀','⭐','🌷'];
-  for (let i = 0; i < 15; i++) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < 10; i++) {
     const s = document.createElement('span');
     s.className = 'floating-heart';
     s.textContent = hearts[i % hearts.length];
-    s.style.left = Math.random() * 100 + '%';
-    s.style.fontSize = (14 + Math.random() * 14) + 'px';
-    s.style.animationDuration = (10 + Math.random() * 15) + 's';
-    s.style.animationDelay = (Math.random() * 15) + 's';
-    s.style.opacity = 0.3 + Math.random() * 0.4;
-    c.appendChild(s);
+    s.style.cssText = `left:${Math.random()*100}%;font-size:${14+Math.random()*14}px;animation-duration:${10+Math.random()*15}s;animation-delay:${Math.random()*15}s;opacity:${(.3+Math.random()*.4).toFixed(2)}`;
+    frag.appendChild(s);
   }
+  c.appendChild(frag);
 }
 
 // ===== RENDER: COVER PHOTO =====
 function renderCoverPhoto() {
-  const img = document.getElementById('cover-img');
-  const ph = document.getElementById('cover-placeholder');
-  const circle = document.getElementById('cover-photo-circle');
-  const editBtn = document.getElementById('edit-cover-btn');
   const s = state.editingCover ? state.editCoverDraft : state.coverSettings;
   const bs = BORDER_STYLES.find(b => b.key === s.border) || BORDER_STYLES[0];
-  circle.className = 'cover-photo-circle ' + bs.cls;
+  $.coverCircle.className = 'cover-photo-circle ' + bs.cls;
   if (state.coverPhoto) {
-    img.src = state.coverPhoto;
-    img.style.display = 'block';
-    img.style.objectPosition = s.posX + '% ' + s.posY + '%';
-    ph.style.display = 'none';
-    editBtn.style.display = 'flex';
+    $.coverImg.src = state.coverPhoto;
+    $.coverImg.style.display = 'block';
+    $.coverImg.style.objectPosition = s.posX + '% ' + s.posY + '%';
+    $.coverPh.style.display = 'none';
+    $.editCoverBtn.style.display = 'flex';
   } else {
-    img.style.display = 'none';
-    ph.style.display = 'block';
-    editBtn.style.display = 'none';
+    $.coverImg.style.display = 'none';
+    $.coverPh.style.display = 'block';
+    $.editCoverBtn.style.display = 'none';
   }
 }
 
 // ===== COVER PHOTO EDITOR =====
 function initBorderPicker() {
-  const picker = document.getElementById('border-picker');
-  picker.innerHTML = BORDER_STYLES.map(b =>
+  $.borderPicker.innerHTML = BORDER_STYLES.map(b =>
     `<button class="border-opt ${b.cls} ${state.editCoverDraft.border === b.key ? 'active' : ''}" data-key="${b.key}" onclick="selectBorder('${b.key}')"><div class="border-opt-inner">${b.emoji}</div></button>`
   ).join('');
 }
@@ -481,28 +535,28 @@ function toggleCoverEditor() {
   state.editingCover = !state.editingCover;
   if (state.editingCover) {
     state.editCoverDraft = { ...state.coverSettings };
-    document.getElementById('cover-pos-x').value = state.editCoverDraft.posX;
-    document.getElementById('cover-pos-y').value = state.editCoverDraft.posY;
+    $.coverPosX.value = state.editCoverDraft.posX;
+    $.coverPosY.value = state.editCoverDraft.posY;
     initBorderPicker();
   }
-  document.getElementById('cover-editor').style.display = state.editingCover ? 'block' : 'none';
+  $.coverEditor.style.display = state.editingCover ? 'block' : 'none';
   renderCoverPhoto();
 }
 function updateCoverPreview() {
-  state.editCoverDraft.posX = +document.getElementById('cover-pos-x').value;
-  state.editCoverDraft.posY = +document.getElementById('cover-pos-y').value;
+  state.editCoverDraft.posX = +$.coverPosX.value;
+  state.editCoverDraft.posY = +$.coverPosY.value;
   renderCoverPhoto();
 }
 async function saveCoverSettings() {
   state.coverSettings = { ...state.editCoverDraft };
   state.editingCover = false;
-  document.getElementById('cover-editor').style.display = 'none';
+  $.coverEditor.style.display = 'none';
   renderCoverPhoto();
   await saveCoverPhotoSettings(state.coverSettings);
 }
 function cancelCoverEditor() {
   state.editingCover = false;
-  document.getElementById('cover-editor').style.display = 'none';
+  $.coverEditor.style.display = 'none';
   renderCoverPhoto();
 }
 function triggerCoverUpload() {
@@ -533,13 +587,12 @@ function getFilteredItems() {
   return state.items.filter(i => i.type === state.filter);
 }
 function renderFilterBar() {
-  const bar = document.getElementById('filter-bar');
-  if (!state.items.length) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
+  if (!state.items.length) { $.filterBar.style.display = 'none'; return; }
+  $.filterBar.style.display = 'flex';
   const total = state.items.length;
   const photos = state.items.filter(i => i.type === 'image').length;
   const videos = state.items.filter(i => i.type === 'video').length;
-  bar.innerHTML = [
+  $.filterBar.innerHTML = [
     { key: 'all', emoji: '✨', label: 'All', count: total },
     { key: 'image', emoji: '📸', label: 'Photos', count: photos },
     { key: 'video', emoji: '🎬', label: 'Videos', count: videos },
@@ -550,17 +603,18 @@ function renderFilterBar() {
 function setFilter(f) { state.filter = f; renderFilterBar(); renderGallery(); }
 
 function renderGallery() {
-  const grid = document.getElementById('gallery-grid');
-  const empty = document.getElementById('gallery-empty');
   const filtered = getFilteredItems();
-  if (!filtered.length) { grid.innerHTML = ''; empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  grid.innerHTML = filtered.map((item, idx) => {
+  if (!filtered.length) { $.gallery.innerHTML = ''; $.galleryEmpty.style.display = 'block'; return; }
+  $.galleryEmpty.style.display = 'none';
+  $.gallery.innerHTML = filtered.map((item, idx) => {
     const grad = CARD_COLORS[idx % CARD_COLORS.length];
     const media = item.type === 'video'
       ? `<video src="${item.url}" muted preload="metadata"></video><div class="video-overlay">▶️</div>`
-      : `<img src="${item.url}" alt="${item.name || ''}" loading="lazy">`;
-    return `<div class="media-card" style="animation-delay:${idx * .05}s">
+      : `<img src="${item.url}" alt="${item.name || ''}" loading="lazy" decoding="async">`;
+    return `<div class="media-card draggable" draggable="true" style="animation-delay:${idx * .05}s"
+      ondragstart="onDragStart(event,'gallery',${idx})" ondragend="onDragEnd(event)"
+      ondragover="onDragOverCard(event)" ondrop="onDropCard(event,'gallery',${idx})">
+      <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
       <div class="media-card-inner ${grad}" onclick="openLightbox(${state.items.indexOf(item)})">
         <div class="media-card-media">${media}</div>
         <div class="media-card-info"><p>${item.name || ''}</p></div>
@@ -573,7 +627,7 @@ function renderGallery() {
 // ===== UPLOAD HANDLERS =====
 function handleDrop(e) {
   e.preventDefault();
-  document.getElementById('upload-zone').classList.remove('dragging');
+  $.uploadZone.classList.remove('dragging');
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
   if (files.length) uploadFiles(files);
 }
@@ -584,12 +638,25 @@ function handleFileInput(e) {
 }
 async function uploadFiles(files) {
   state.isUploading = true;
-  document.getElementById('uploading-text').style.display = 'block';
-  const results = await Promise.all(files.map(f => uploadMediaItem(f)));
+  $.uploadProgress.style.display = 'block';
+  $.progressFill.style.width = '0%';
+  $.progressPct.textContent = '0%';
+  $.progressStatus.textContent = `Uploading 0/${files.length}... 💫`;
+  let done = 0;
+  const results = [];
+  for (const f of files) {
+    const item = await uploadMediaItem(f);
+    results.push(item);
+    done++;
+    const percent = Math.round((done / files.length) * 100);
+    $.progressFill.style.width = percent + '%';
+    $.progressPct.textContent = percent + '%';
+    $.progressStatus.textContent = done < files.length ? `Uploading ${done}/${files.length}... 💫` : 'Done! ✨';
+  }
   const newItems = results.filter(Boolean);
   state.items = [...newItems, ...state.items];
   state.isUploading = false;
-  document.getElementById('uploading-text').style.display = 'none';
+  setTimeout(() => { $.uploadProgress.style.display = 'none'; }, 1000);
   renderFilterBar();
   renderGallery();
 }
@@ -608,12 +675,12 @@ async function removeMedia(id, storagePath) {
 function openLightbox(idx) {
   state.lightboxIndex = idx;
   renderLightbox();
-  document.getElementById('lightbox').style.display = 'flex';
+  $.lightbox.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
 function closeLightbox() {
   state.lightboxIndex = null;
-  document.getElementById('lightbox').style.display = 'none';
+  $.lightbox.style.display = 'none';
   document.body.style.overflow = '';
 }
 function prevLightbox() {
@@ -625,7 +692,7 @@ function nextLightbox() {
 function renderLightbox() {
   const item = state.items[state.lightboxIndex];
   if (!item) return;
-  const lbc = document.getElementById('lb-content');
+  const lbc = $.lbContent;
   const media = item.type === 'video'
     ? `<video src="${item.url}" controls autoplay class="lb-video"></video>`
     : `<img src="${item.url}" alt="${item.name || ''}">`;
@@ -642,7 +709,7 @@ document.addEventListener('keydown', e => {
 let showLetterForm = false;
 let letterDraft = { title: '', content: '', emoji: '💌' };
 function renderLetters() {
-  const sec = document.getElementById('section-letters');
+  const sec = $.sectionLetters;
   let html = '';
   if (!showLetterForm) {
     html += `<div class="add-btn-zone" onclick="showLetterForm=true; renderLetters()"><span style="font-size:2rem">💌</span><p style="margin-top:.5rem;font-weight:600;color:rgba(74,53,72,.6)">Write a new letter ✨</p></div>`;
@@ -656,7 +723,7 @@ function renderLetters() {
     html += `<div class="cards-grid">${state.letters.map((l, i) => {
       const grad = CARD_COLORS[i % CARD_COLORS.length];
       const date = new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      return `<div class="card-wrapper" style="animation-delay:${i*.05}s"><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${l.emoji||'💌'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(l.title)}</div><div class="card-text">${esc(l.content)}</div></div></div><button class="delete-btn" onclick="removeLetter(${l.id})">✕</button></div>`;
+      return `<div class="card-wrapper draggable" draggable="true" style="animation-delay:${i*.05}s" ondragstart="onDragStart(event,'letters',${i})" ondragend="onDragEnd(event)" ondragover="onDragOverCard(event)" ondrop="onDropCard(event,'letters',${i})"><span class="drag-handle" title="Drag to reorder">⋮⋮</span><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${l.emoji||'💌'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(l.title)}</div><div class="card-text">${esc(l.content)}</div></div></div><button class="delete-btn" onclick="removeLetter(${l.id})">✕</button></div>`;
     }).join('')}</div>`;
   } else if (!showLetterForm) {
     html += `<div class="empty-state"><span class="empty-icon wiggle">💌</span><p class="empty-title">No letters yet~</p><p class="empty-sub">Write a sweet letter above! 💕</p></div>`;
@@ -679,7 +746,7 @@ async function removeLetter(id) {
 let showSongForm = false;
 let songDraft = { title: '', artist: '', url: '', emoji: '🎵' };
 function renderSongs() {
-  const sec = document.getElementById('section-songs');
+  const sec = $.sectionSongs;
   let html = '';
   if (!showSongForm) {
     html += `<div class="add-btn-zone" onclick="showSongForm=true; renderSongs()"><span style="font-size:2rem">🎵</span><p style="margin-top:.5rem;font-weight:600;color:rgba(74,53,72,.6)">Add a new song ✨</p></div>`;
@@ -696,7 +763,7 @@ function renderSongs() {
       const date = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       let link = '';
       if (s.url) link = `<a class="card-link" href="${esc(s.url)}" target="_blank" rel="noopener">🔗 Listen</a>`;
-      return `<div class="card-wrapper" style="animation-delay:${i*.05}s"><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${s.emoji||'🎵'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(s.title)}</div>${s.artist ? `<div class="card-artist">by ${esc(s.artist)}</div>` : ''}${link}</div></div><button class="delete-btn" onclick="removeSong(${s.id})">✕</button></div>`;
+      return `<div class="card-wrapper draggable" draggable="true" style="animation-delay:${i*.05}s" ondragstart="onDragStart(event,'songs',${i})" ondragend="onDragEnd(event)" ondragover="onDragOverCard(event)" ondrop="onDropCard(event,'songs',${i})"><span class="drag-handle" title="Drag to reorder">⋮⋮</span><div class="card-outer ${grad}"><div class="card-body"><div class="card-top"><span>${s.emoji||'🎵'}</span><span class="card-date">${date}</span></div><div class="card-title">${esc(s.title)}</div>${s.artist ? `<div class="card-artist">by ${esc(s.artist)}</div>` : ''}${link}</div></div><button class="delete-btn" onclick="removeSong(${s.id})">✕</button></div>`;
     }).join('')}</div>`;
   } else if (!showSongForm) {
     html += `<div class="empty-state"><span class="empty-icon wiggle">🎵</span><p class="empty-title">No songs yet~</p><p class="empty-sub">Add your favorite songs above! 🎶</p></div>`;
@@ -715,25 +782,118 @@ async function removeSong(id) {
   if (await deleteSong(id)) { state.songs = state.songs.filter(s => s.id !== id); renderSongs(); }
 }
 
+// ===== DRAG & DROP REORDER =====
+let dragState = { type: null, fromIdx: null };
+
+function onDragStart(e, type, idx) {
+  dragState = { type, fromIdx: idx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', idx);
+  requestAnimationFrame(() => e.target.closest('.media-card, .card-wrapper').classList.add('dragging'));
+}
+function onDragEnd(e) {
+  e.target.closest('.media-card, .card-wrapper')?.classList.remove('dragging');
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  dragState = { type: null, fromIdx: null };
+}
+function onDragOverCard(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const card = e.target.closest('.media-card, .card-wrapper');
+  if (card && !card.classList.contains('drag-over')) {
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    card.classList.add('drag-over');
+  }
+}
+function onDropCard(e, type, toIdx) {
+  e.preventDefault();
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  if (dragState.type !== type || dragState.fromIdx === null || dragState.fromIdx === toIdx) return;
+  const from = dragState.fromIdx;
+  let arr;
+  if (type === 'gallery') arr = getFilteredItems();
+  else if (type === 'letters') arr = state.letters;
+  else arr = state.songs;
+
+  // If gallery is filtered, map indices back to state.items
+  if (type === 'gallery' && state.filter !== 'all') {
+    const filtered = getFilteredItems();
+    const realFrom = state.items.indexOf(filtered[from]);
+    const realTo = state.items.indexOf(filtered[toIdx]);
+    const [moved] = state.items.splice(realFrom, 1);
+    state.items.splice(realTo, 0, moved);
+  } else if (type === 'gallery') {
+    const [moved] = state.items.splice(from, 1);
+    state.items.splice(toIdx, 0, moved);
+  } else if (type === 'letters') {
+    const [moved] = state.letters.splice(from, 1);
+    state.letters.splice(toIdx, 0, moved);
+  } else {
+    const [moved] = state.songs.splice(from, 1);
+    state.songs.splice(toIdx, 0, moved);
+  }
+  dragState = { type: null, fromIdx: null };
+  if (type === 'gallery') renderGallery();
+  else if (type === 'letters') renderLetters();
+  else renderSongs();
+  saveOrder(type);
+}
+async function saveOrder(type) {
+  if (!sb) return;
+  let ids;
+  if (type === 'gallery') ids = state.items.map(i => i.id);
+  else if (type === 'letters') ids = state.letters.map(l => l.id);
+  else ids = state.songs.map(s => s.id);
+  await sb.from('settings').upsert({ key: type + '_order', value: JSON.stringify(ids) });
+}
+async function loadOrder(type) {
+  if (!sb) return null;
+  const { data, error } = await sb.from('settings').select('value').eq('key', type + '_order').single();
+  if (error || !data) return null;
+  try { return JSON.parse(data.value); } catch { return null; }
+}
+function applyOrder(arr, orderIds) {
+  if (!orderIds || !orderIds.length) return arr;
+  const map = new Map(arr.map(item => [item.id, item]));
+  const ordered = [];
+  for (const id of orderIds) { if (map.has(id)) { ordered.push(map.get(id)); map.delete(id); } }
+  // append any new items not in saved order
+  for (const item of arr) { if (map.has(item.id)) ordered.push(item); }
+  return ordered;
+}
+
 // ===== HELPER =====
 function esc(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ===== SKELETON LOADING =====
+function showSkeletons() {
+  $.gallery.innerHTML = Array.from({length:6}, (_,i) =>
+    `<div class="media-card" style="animation-delay:${i*.05}s"><div class="media-card-inner grad-pink" style="opacity:.4"><div class="media-card-media" style="background:linear-gradient(90deg,#fce7f3 25%,#fff 50%,#fce7f3 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;min-height:160px"></div></div></div>`
+  ).join('');
+  $.sectionLetters.innerHTML = `<div class="empty-state" style="opacity:.5"><span class="empty-icon wiggle">💌</span><p>Loading letters...</p></div>`;
+  $.sectionSongs.innerHTML = `<div class="empty-state" style="opacity:.5"><span class="empty-icon wiggle">🎵</span><p>Loading songs...</p></div>`;
+}
+
 // ===== INIT =====
 async function init() {
+  cacheDom();
   initHearts();
+  initSupabase();
   if (!sb) {
     document.querySelector('.subtitle').textContent = '⚠️ Set SUPABASE_URL and SUPABASE_ANON_KEY in the script to connect!';
     return;
   }
-  const [items, letters, songs, cover, coverSettings] = await Promise.all([
-    fetchMediaItems(), fetchLetters(), fetchSongs(), fetchCoverPhoto(), fetchCoverPhotoSettings()
+  showSkeletons();
+  const [items, letters, songs, cover, coverSettings, galleryOrder, lettersOrder, songsOrder] = await Promise.all([
+    fetchMediaItems(), fetchLetters(), fetchSongs(), fetchCoverPhoto(), fetchCoverPhotoSettings(),
+    loadOrder('gallery'), loadOrder('letters'), loadOrder('songs')
   ]);
-  state.items = items;
-  state.letters = letters;
-  state.songs = songs;
+  state.items = applyOrder(items, galleryOrder);
+  state.letters = applyOrder(letters, lettersOrder);
+  state.songs = applyOrder(songs, songsOrder);
   state.coverPhoto = cover;
   state.coverSettings = coverSettings;
   state.editCoverDraft = { ...coverSettings };
@@ -743,7 +903,7 @@ async function init() {
   renderLetters();
   renderSongs();
 }
-init();
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
