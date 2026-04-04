@@ -12,9 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💖</text></svg>">
 <!-- Preconnect to Supabase & CDN for faster loading -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="preconnect" href="https://poviyhchcxwyhqpepuvc.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-<link rel="dns-prefetch" href="https://poviyhchcxwyhqpepuvc.supabase.co">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <style>
 :root {
@@ -244,9 +242,40 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 ::-webkit-scrollbar-track { background: var(--pink-light); border-radius: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--pink); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #f472b6; }
+
+/* Setup screen */
+.setup-overlay { position: fixed; inset: 0; z-index: 9999; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+.setup-card { background: #fff; border-radius: 1.5rem; padding: 2.5rem; max-width: 460px; width: 90%; box-shadow: 0 8px 40px rgba(196,181,253,.3); text-align: center; animation: scaleIn .4s ease-out; }
+.setup-card h2 { font-size: 1.5rem; margin-bottom: .5rem; }
+.setup-card p { font-size: .9rem; color: rgba(74,53,72,.5); margin-bottom: 1.5rem; }
+.setup-input { width: 100%; padding: .85rem 1rem; border-radius: 1rem; border: 2px solid rgba(196,181,253,.2); background: rgba(252,231,243,.15); font-size: .9rem; font-family: inherit; color: var(--fg); outline: none; margin-bottom: .75rem; transition: border-color .3s; }
+.setup-input:focus { border-color: var(--pink); }
+.setup-input::placeholder { color: rgba(74,53,72,.3); }
+.setup-actions { display: flex; gap: .75rem; margin-top: 1rem; justify-content: center; }
+.setup-hint { font-size: .75rem; color: rgba(74,53,72,.35); margin-top: 1rem; }
+.setup-hint a { color: var(--purple); }
 </style>
 </head>
 <body>
+
+<!-- Setup screen (shown when no Supabase creds) -->
+<div id="setup-screen" class="setup-overlay" style="display:none">
+  <div class="setup-card">
+    <div style="font-size:3rem;margin-bottom:.75rem">🔐</div>
+    <h2>Connect to Supabase ✨</h2>
+    <p>Enter your Supabase project credentials to get started</p>
+    <input class="setup-input" id="setup-url" placeholder="Supabase URL (https://xxx.supabase.co)" autocomplete="url">
+    <input class="setup-input" id="setup-key" placeholder="Supabase Anon Key" autocomplete="off">
+    <div class="setup-actions">
+      <button class="btn btn-primary" onclick="saveSetupCreds()">💾 Connect & Save</button>
+      <button class="btn-cancel" onclick="document.getElementById('setup-screen').style.display='none'" style="padding:.6rem 1.2rem;border-radius:999px;border:none;cursor:pointer;font-size:.85rem">Cancel</button>
+    </div>
+    <div class="setup-actions" style="margin-top:.5rem">
+      <button onclick="disconnectSupabase()" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:rgba(74,53,72,.35);text-decoration:underline">🔌 Disconnect & Clear Credentials</button>
+    </div>
+    <p class="setup-hint">Find these at <a href="https://app.supabase.com" target="_blank" rel="noopener">app.supabase.com</a> → Project → Settings → API<br>Credentials are saved in your browser's localStorage 🔒</p>
+  </div>
+</div>
 
 <!-- Floating hearts container -->
 <div id="floating-hearts" class="floating-hearts-container"></div>
@@ -288,6 +317,7 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 
     <h1 class="main-title">✨ Cute Gallery ✨</h1>
     <p class="subtitle">Your adorable collection of photos, videos, letters & songs 🌸</p>
+    <button onclick="showSetup()" title="Supabase Settings" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.7);border:1px solid rgba(196,181,253,.2);border-radius:999px;padding:.5rem .75rem;cursor:pointer;font-size:.85rem;transition:all .3s;z-index:20" onmouseover="this.style.background='#fff';this.style.boxShadow='0 2px 10px rgba(0,0,0,.08)'" onmouseout="this.style.background='rgba(255,255,255,.7)';this.style.boxShadow='none'">⚙️</button>
   </header>
 
   <!-- Section tabs -->
@@ -351,9 +381,9 @@ body { background: var(--bg); color: var(--fg); font-family: -apple-system, Blin
 </div>
 
 <script>
-// ===== CONFIG - PUT YOUR SUPABASE CREDENTIALS HERE =====
-const SUPABASE_URL = 'https://poviyhchcxwyhqpepuvc.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_Ljwpo9mXgQFRqNFdyK4TSA_s-V1LOR4';
+// ===== CONFIG — loaded from localStorage =====
+let SUPABASE_URL = localStorage.getItem('cg_supabase_url') || '';
+let SUPABASE_ANON_KEY = localStorage.getItem('cg_supabase_key') || '';
 
 let sb = null;
 function initSupabase() {
@@ -361,6 +391,33 @@ function initSupabase() {
   if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_ANON_KEY) {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
+}
+function saveSetupCreds() {
+  const url = document.getElementById('setup-url').value.trim();
+  const key = document.getElementById('setup-key').value.trim();
+  if (!url || !key) { alert('Please fill in both fields 💫'); return; }
+  if (!url.startsWith('https://') || !url.includes('.supabase.co')) { alert('URL should look like https://xxx.supabase.co 🌸'); return; }
+  localStorage.setItem('cg_supabase_url', url);
+  localStorage.setItem('cg_supabase_key', key);
+  SUPABASE_URL = url;
+  SUPABASE_ANON_KEY = key;
+  document.getElementById('setup-screen').style.display = 'none';
+  initSupabase();
+  if (sb) {
+    showSkeletons();
+    loadAllData();
+  }
+}
+function showSetup() {
+  document.getElementById('setup-url').value = SUPABASE_URL;
+  document.getElementById('setup-key').value = SUPABASE_ANON_KEY;
+  document.getElementById('setup-screen').style.display = 'flex';
+}
+function disconnectSupabase() {
+  if (!confirm('Disconnect from Supabase? This will clear your saved credentials. 🔒')) return;
+  localStorage.removeItem('cg_supabase_url');
+  localStorage.removeItem('cg_supabase_key');
+  location.reload();
 }
 
 // ===== CACHED DOM REFS (populated on DOMContentLoaded) =====
@@ -945,15 +1002,8 @@ function showSkeletons() {
   $.sectionSongs.innerHTML = `<div class="empty-state" style="opacity:.5"><span class="empty-icon wiggle">🎵</span><p>Loading songs...</p></div>`;
 }
 
-// ===== INIT =====
-async function init() {
-  cacheDom();
-  initHearts();
-  initSupabase();
-  if (!sb) {
-    document.querySelector('.subtitle').textContent = '⚠️ Set SUPABASE_URL and SUPABASE_ANON_KEY in the script to connect!';
-    return;
-  }
+// ===== LOAD DATA =====
+async function loadAllData() {
   showSkeletons();
   const [items, letters, songs, cover, coverSettings, galleryOrder, lettersOrder, songsOrder] = await Promise.all([
     fetchMediaItems(), fetchLetters(), fetchSongs(), fetchCoverPhoto(), fetchCoverPhotoSettings(),
@@ -970,6 +1020,20 @@ async function init() {
   renderGallery();
   renderLetters();
   renderSongs();
+}
+
+// ===== INIT =====
+async function init() {
+  cacheDom();
+  initHearts();
+  initSupabase();
+  if (!sb) {
+    // No creds saved — show setup screen
+    showSetup();
+    document.querySelector('.subtitle').textContent = '⚙️ Connect to Supabase to get started';
+    return;
+  }
+  await loadAllData();
 }
 document.addEventListener('DOMContentLoaded', init);
 </script>
